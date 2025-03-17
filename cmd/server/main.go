@@ -1,14 +1,15 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 
 	"github.com/Th4uan/basic-api-go/configs"
-	"github.com/Th4uan/basic-api-go/internal/dto"
 	"github.com/Th4uan/basic-api-go/internal/entity"
 	"github.com/Th4uan/basic-api-go/internal/infra/database"
+	"github.com/Th4uan/basic-api-go/internal/infra/webserver/handlers"
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -26,43 +27,16 @@ func main() {
 	db.AutoMigrate(&entity.Product{}, &entity.User{})
 
 	productDB := database.NewProduct(db)
-	productHandler := NewProductHandler(productDB)
-	http.HandleFunc("/products/create", productHandler.CreateProduct)
+	productHandler := handlers.NewProductHandler(productDB)
+
+	r := chi.NewRouter()
+	r.Use(middleware.Logger)
+	r.Post("/products/create", productHandler.CreateProduct)
+	r.Get("/products/{id}", productHandler.GetProduct)
+	r.Put("/products/{id}", productHandler.UpdateProduct)
+	r.Delete("/products/{id}", productHandler.DeleteProduct)
+	r.Get("/products", productHandler.GetAllProducts)
 
 	fmt.Println("Server is running on port 8000")
-	http.ListenAndServe(":8000", nil)
-}
-
-type ProductHandler struct {
-	ProductDB database.ProductInterface
-}
-
-func NewProductHandler(db database.ProductInterface) *ProductHandler {
-	return &ProductHandler{
-		ProductDB: db,
-	}
-}
-
-func (h *ProductHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
-	var product dto.ProductDTO
-	err := json.NewDecoder(r.Body).Decode(&product)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	p, err := entity.NewProduct(product.Name, product.Price)
-
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	err = h.ProductDB.Create(p)
-
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(http.StatusCreated)
+	http.ListenAndServe(":8000", r)
 }
