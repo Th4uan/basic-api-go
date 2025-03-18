@@ -16,7 +16,7 @@ import (
 
 func main() {
 	// Start the server
-	_, err := configs.LoadConfig(".")
+	configs, err := configs.LoadConfig(".")
 	if err != nil {
 		panic(err)
 	}
@@ -29,7 +29,7 @@ func main() {
 	productDB := database.NewProduct(db)
 	productHandler := handlers.NewProductHandler(productDB)
 	userDB := database.NewUser(db)
-	userHandler := handlers.NewUserHandler(userDB)
+	userHandler := handlers.NewUserHandler(userDB, configs.TokenAuth, configs.JWTExpiresIn)
 
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
@@ -40,6 +40,7 @@ func main() {
 	r.Get("/products", productHandler.GetAllProducts)
 
 	r.Post("/users/create", userHandler.CreateUser)
+	r.Post("/users/generate_token", userHandler.GetJWT)
 
 	fmt.Println("Server is running on port 8000")
 	http.ListenAndServe(":8000", r)
